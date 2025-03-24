@@ -1,7 +1,7 @@
 #/bin/bash
 #-    author          Narendra Babu
 ########################################
-
+#----#
 # Install Blackbox Exporter
 
 echo "Installing Prometheus..."
