@@ -1,0 +1,156 @@
+Grok Exporter Installation Steps: 
+
+Step 1. Create directory for grok exporter installation
+
+
+
+mkdir cd /usr/src/grok/
+wget https://github.com/fstab/grok_exporter/releases/download/v1.0.0.RC5/grok_exporter-1.0.0.RC5.linux-amd64.zip 
+unzip grok_exporter-1.0.0.RC5.linux-amd64.zip
+cd grok_exporter-1.0.0.RC5.linux-amd64
+mv grok_exporter-1.0.0.RC5.linux-amd64 grok_exporter
+mv grok_exporter /usr/src/grok/grok_exporter/
+vim /etc/systemd/system/grok-exporter.service
+[Unit]
+Description=Grok Exporter
+After=network.target
+[Service]
+User=root
+Group=root
+Type=simple
+ExecStart=/usr/src/grok/grok_exporter/grok_exporter --config /usr/src/grok/grok_exporter/config/config.yml
+[Install]
+WantedBy=multi-user.target
+ 
+
+Step 2. create config.yml under /usr/src/grok/grok_exporter/config/
+
+
+
+touch /usr/src/grok/grok_exporter/config/config.yml
+---
+global:
+  config_version: 3
+input:
+  type: file
+  path: /ubona/ubona-dc-automation/ubona-nxtra-automation/logs/*.log
+  readall: true
+imports:
+  - type: grok_patterns
+    dir: /usr/src/grok/grok_exporter/patterns
+grok_patterns:
+  - EXIM_MESSAGE [a-zA-Z ]*
+metrics:
+  - type: gauge
+    name: trunk_usage
+    help: trunk_usage from nxtra
+    match: "%{ASTERISK}"
+    value: "{{.usage}}"
+    labels:
+      server: "{{.server}}"
+      trunk: "{{.trunk}}"
+      data_center: "{{.data_center}}"
+  - type: gauge
+    name: system_uptime
+    help: system_uptime from nxtra
+    match: "%{ASTERISKUPTIME}"
+    value: "{{.system_uptime}}"
+    labels:
+      server: "{{.server}}"
+      data_center: "{{.data_center}}"
+  - type: gauge
+    name: status
+    help: status of Asterisk
+    match: "%{ASTERISKSTATUS}"
+    value: "{{.status}}"
+    labels:
+      server: "{{.server}}"
+      data_center: "{{.data_center}}"
+  - type: gauge
+    name: asterisk_version
+    help: asterisk_version of Asterisk from nxtra
+    match: "%{ASTERISKVERSION}"
+    value: "{{.version}}"
+    labels:
+      server: "{{.server}}"
+      data_center: "{{.data_center}}"
+  - type: gauge
+    name: last_reload
+    help: last_reload from nxtra
+    match: "%{ASTERISKUPTIME}"
+    value: "{{.last_reload}}"
+    labels:
+      server: "{{.server}}"
+      data_center: "{{.data_center}}"
+  - type: gauge
+    name: user_session
+    help: user_session from nxtra
+    match: "%{USERCOUNT}"
+    value: "{{.user_session}}"
+    labels:
+      user: "{{.user}}"
+      server: "{{.server}}"
+      data_center: "{{.data_center}}"
+  - type: gauge
+    name: manager_core_in_queue
+    help: manager_core_in_queue from nxtra
+    match: "%{MANAGERCORE}"
+    value: "{{.manager_core_in_queue}}"
+    labels:
+      server: "{{.server}}"
+      data_center: "{{.data_center}}"
+  - type: gauge
+    name: manager_core_processed
+    help: manager_core_processed from nxtra
+    match: "%{MANAGERCORE}"
+    value: "{{.manager_core_processed}}"
+    labels:
+      server: "{{.server}}"
+      data_center: "{{.data_center}}"
+  - type: gauge
+    name: manager_core_max_depth
+    help: manager_core_max_depth from nxtra
+    match: "%{MANAGERCORE}"
+    value: "{{.manager_core_max_depth}}"
+    labels:
+      server: "{{.server}}"
+      data_center: "{{.data_center}}"
+  - type: gauge
+    name: registration_status
+    help: registration_status from nxtra
+    match: "%{REGISTRATIONSTATUS}"
+    value: "{{.status_value}}"
+    labels:
+      host: "{{.host}}"
+      server: "{{.server}}"
+      data_center: "{{.data_center}}"
+server:
+  protocol: http
+  port: 6500
+
+Step 3. 
+
+
+
+touch /usr/src/grok/grok_exporter/patterns/asterisk
+# These patterns are used for parsing ASTERISK log patterns
+ASTERISKUPTIME {"time":"%{TIMESTAMP_ISO8601:time}","system_uptime":"%{NUMBER:system_uptime}","last_reload":"%{NUMBER:last_reload}","server":"%{DATA:server}","data_center":"%{DATA:data_center}"}
+ASTERISKVERSION {"time":"%{TIMESTAMP_ISO8601:time}","version":"%{NUMBER:version}","server":"%{DATA:server}","data_center":"%{DATA:data_center}"}
+ASTERISKSTATUS {"time":"%{TIMESTAMP_ISO8601:time}","status":"%{NUMBER:status}","server":"%{DATA:server}","data_center":"%{DATA:data_center}"}
+ASTERISK {"time":"%{TIMESTAMP_ISO8601:time}","data_center":"%{DATA:data_center}","server":"%{DATA:server}","trunk":"%{DATA:trunk}","usage":%{NUMBER:usage}}
+USERCOUNT {"time":"%{TIMESTAMP_ISO8601:time}","user":"%{DATA:user}","user_session":%{NUMBER:user_session},"server":"%{DATA:server}","data_center":"%{DATA:data_center}"}
+MANAGERCORE {"time":"%{TIMESTAMP_ISO8601:time}","manager_core_processed":%{NUMBER:manager_core_processed},"manager_core_in_queue":%{NUMBER:manager_core_in_queue},"manager_core_max_depth":%{NUMBER:manager_core_max_depth},"server":"%{DATA:server}","data_center":"%{DATA:data_center}"}
+REGISTRATIONSTATUS {"time":"%{TIMESTAMP_ISO8601:time}","host":"%{DATA:host}","status_value":%{NUMBER:status_value},"server":"%{DATA:server}","data_center":"%{DATA:data_center}"}
+
+Step 4. Automation script can be found on new servers under.. 
+
+
+
+cd /scripts/sre_automation/bin
+Step 5. Now Start Grok Exporter as Service
+
+
+
+ systemctl enable grok-exporter.service
+ systemctl start grok-exporter.service
+ systemctl status grok-exporter.service
